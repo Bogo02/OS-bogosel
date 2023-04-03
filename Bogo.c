@@ -16,7 +16,7 @@ B)symbolic link: -n(link name)
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
+//we print the info of a regular file
 void print_regular_file_info(const char* path) {
     struct stat st;
     if (stat(path, &st) == -1) {
@@ -40,7 +40,7 @@ void print_regular_file_info(const char* path) {
     }
     printf("Symbolic link created: %s -> %s\n", link_name, path);
 }
-
+//symbolic link
 void print_symbolic_link_info(const char* path) {
     struct stat st;
     if (lstat(path, &st) == -1) {
@@ -67,7 +67,7 @@ void print_symbolic_link_info(const char* path) {
 void print_directory_info(const char* path) {
     printf("Directory name: %s\n", path);
 }
-
+// we print the information of the file, depending on the type of file
 void print_file_info(const char* path) {
     struct stat st;
     if (stat(path, &st) == -1) {
@@ -90,7 +90,7 @@ void print_file_info(const char* path) {
             break;
     }
 }
-
+//ze main functione
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         printf("Usage: %s file1 [file2 ...]\n", argv[0]);
@@ -103,3 +103,4 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+//ze end
