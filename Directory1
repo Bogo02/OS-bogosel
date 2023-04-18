@@ -1,0 +1,105 @@
+//to be merged
+/*Write a C program that recieves as parameters multiple arguments representing paths to regular files, directories and symbolic links.
+Depending on the file type(rf,d,sl) print an interactive menu:
+A)regular file: -n(file name)
+-d(dim/size)
+-h(nr of hard links)
+-m(time of last modification)
+-a(acces rights)
+-l(create sym.link give:link name)
+B)symbolic link: -n(link name)
+-l(delete link)
+-d(size of the link)
+-t(size of the target)
+-a(access rights)
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+void print_access_rights(mode_t mode) {
+    printf("User\n");
+    printf("Read-%s\n", (mode & S_IRUSR) ? "yes" : "no");
+    printf("Write-%s\n", (mode & S_IWUSR) ? "yes" : "no");
+    printf("Exec-%s\n", (mode & S_IXUSR) ? "yes" : "no");
+    printf("Group:\n");
+    printf("Read-%s\n", (mode & S_IRGRP) ? "yes" : "no");
+    printf("Write-%s\n", (mode & S_IWGRP) ? "yes" : "no");
+    printf("Exec-%s\n", (mode & S_IXGRP) ? "yes" : "no");
+    printf("Others:\n");
+    printf("Read-%s\n", (mode & S_IROTH) ? "yes" : "no");
+    printf("Write-%s\n", (mode & S_IWOTH) ? "yes" : "no");
+    printf("Exec-%s\n", (mode & S_IXOTH) ? "yes" : "no");
+}
+
+void print_file_menu() {
+    printf("--MENU--\n");
+    printf("-n: name\n");
+    printf("-m: last modified\n");
+    printf("-a: access\n");
+}
+
+void print_directory_menu() {
+    printf("--MENU--\n");
+    printf("-n: name\n");
+    printf("-d: size\n");
+    printf("-a: access rights\n");
+    printf("-c: total number of files with the \"C\" extension\n");
+}
+
+int main() {
+    char input[256];
+    char option[256];
+    char filename[256];
+    struct stat file_stat;
+
+    printf("Enter the filename: ");
+    fgets(filename, sizeof(filename), stdin);
+    filename[strcspn(filename, "\n")] = 0;
+
+    if (stat(filename, &file_stat) != 0) {
+        printf("Error: file not found.\n");
+        return 1;
+    }
+
+    if (S_ISREG(file_stat.st_mode)) {
+        printf("%s-Regular file option\n", filename);
+        print_file_menu();
+    } else if (S_ISDIR(file_stat.st_mode)) {
+        printf("%s-Directory option\n", filename);
+        print_directory_menu();
+    } else {
+        printf("Error: unsupported file type.\n");
+        return 1;
+    }
+
+    printf("Please enter your options: ");
+    fgets(input, sizeof(input), stdin);
+    input[strcspn(input, "\n")] = 0;
+
+    char* p = input;
+    while (*p) {
+        if (*p != '-') {
+            printf("Error: invalid option %c\n", *p);
+            if (S_ISREG(file_stat.st_mode)) {
+                print_file_menu();
+            } else {
+                print_directory_menu();
+            }
+            return 1;
+        }
+        p++;
+
+        int i = 0;
+        while (*p && *p != '-') {
+            option[i++] = *p++;
+        }
+        option[i] = '\0';
+
+        if (strcmp(option, "n") == 0) {
+            printf("Name of file: %s\n", filename);
+        } else if (strcmp(option, "m") == 0) {
+            printf("Time of last modification: %s", ctime(&file_stat.st_mtime));
+        } else if (strcmp(option, "a") ==
