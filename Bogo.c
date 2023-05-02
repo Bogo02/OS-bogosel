@@ -14,93 +14,327 @@ B)symbolic link: -n(link name)
 */
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <string.h>
 #include <unistd.h>
-//we print the info of a regular file
-void print_regular_file_info(const char* path) {
-    struct stat st;
-    if (stat(path, &st) == -1) {
-        perror("stat");
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <errno.h>
+#include <libgen.h>
+#include <time.h>
+
+
+void print_access_rights(mode_t mode) {
+    printf("User:\n");
+    printf("Read - %s\n", (mode & S_IRUSR) ? "yes" : "no");
+    printf("Write - %s\n", (mode & S_IWUSR) ? "yes" : "no");
+    printf("Exec - %s\n", (mode & S_IXUSR) ? "yes" : "no");
+    printf("Group:\n");
+    printf("Read - %s\n", (mode & S_IRGRP) ? "yes" : "no");
+    printf("Write - %s\n", (mode & S_IWGRP) ? "yes" : "no");
+    printf("Exec - %s\n", (mode & S_IXGRP) ? "yes" : "no");
+    printf("Others:\n");
+    printf("Read - %s\n", (mode & S_IROTH) ? "yes" : "no");
+    printf("Write - %s\n", (mode & S_IWOTH) ? "yes" : "no");
+    printf("Exec - %s\n", (mode & S_IXOTH) ? "yes" : "no");
+}
+
+void create_symbolic_link(char* path) {
+    char link_name[100];
+    printf("Enter a name for the symbolic link: ");
+    if (fgets(link_name, sizeof(link_name), stdin) == NULL) {
+        fprintf(stderr, "Error: Failed to read input\n");
+        return;
+    }
+    // Remove newline character from link_name if present
+    link_name[strcspn(link_name, "\n")] = '\0';
+    if (symlink(path, link_name) == -1) {
+        fprintf(stderr, "Error: Failed to create symbolic link\n");
+        return;
+    }
+    printf("Symbolic link created successfully\n");
+}
+void print_error_message(char* message) {
+    fprintf(stderr, "Error: %s\n", message);
+}
+
+void execute_regular_file_option(char option, char* path) {
+    struct stat sb;
+    if (stat(path, &sb) == -1) {
+        perror("Failed to get file information");
+    }
+    switch (option) {
+    case 'n' : printf("Name (-n): %s\n", path);
+    break;
+	case 'd' : printf("Size (-d): %ld bytes\n", sb.st_size);
+    break;
+	case 'h' : printf("Hard link count (-h): %ld\n", sb.st_nlink);
+    break;
+	case 'm' : printf("Time of last modification (-m): %s", ctime(&sb.st_mtime));
+    break;
+	case 'a' : printf("Access rights (-a):\n");
+		print_access_rights(sb.st_mode);
+	break;
+	case 'l' : printf("Create symbolic link (-l): ");
+	    create_symbolic_link(path);
+	break;
+	default: break;   
+    }
+}
+
+void execute_directory_option(char option, char* path) {
+    struct dirent *dp;
+    struct stat sb;
+    DIR *dir = opendir(path);
+    int c_count = 0;
+
+    if (!dir) {
+        perror("Couldn't open directory.");
         return;
     }
 
-    printf("File name: %s\n", path);
-    printf("Size: %ld bytes\n", st.st_size);
-    printf("Number of hard links: %ld\n", st.st_nlink);
-    printf("Time of last modification: %ld\n", st.st_mtime);
-    printf("Access rights: %o\n", st.st_mode & 0777);
-    
-    char link_name[256];
-    printf("Enter link name (max 256 characters): ");
-    scanf("%s", link_name);
-    
-    if (symlink(path, link_name) == -1) {
-        perror("symlink");
-        return;
+    while ((dp = readdir(dir)) != NULL) {
+        char file_path[PATH_MAX];
+        snprintf(file_path, PATH_MAX, "%s/%s", path, dp->d_name);
+
+        if (lstat(file_path, &sb) == -1) {
+            perror("Couldn't get file statistics for file in directory.");
+            continue;
+        }
+
+        switch (option) {
+            case 'n':
+                printf("%s\n", dp->d_name);
+                break;
+
+            case 'd':
+                printf("%ld\n", sb.st_size);
+                break;
+
+            case 'a':
+                print_access_rights(sb.st_mode);
+                break;
+
+            case 'c':
+                if (S_ISREG(sb.st_mode) && strstr(dp->d_name, ".c") != NULL) {
+                    c_count++;
+                }
+                break;
+
+            default:
+                printf("Invalid option: %c\n", option);
+                break;
+        }
     }
-    printf("Symbolic link created: %s -> %s\n", link_name, path);
+
+    if (option == 'c') {
+        printf("Total .c files: %d\n", c_count);
+    }
+
+    closedir(dir);
 }
-//symbolic link
-void print_symbolic_link_info(const char* path) {
-    struct stat st;
-    if (lstat(path, &st) == -1) {
+
+void execute_symbolic_link_option(char option, char* path) {
+    struct stat sb;
+    char target_path[PATH_MAX];
+    ssize_t target_size;
+    int delete_flag = 0;
+
+    if (lstat(path, &sb) == -1) {
         perror("lstat");
         return;
     }
 
-    printf("Link name: %s\n", path);
-    printf("Size of the link: %ld bytes\n", st.st_size);
-    printf("Size of the target: %ld bytes\n", st.st_blocks * 512);
-    printf("Access rights: %o\n", st.st_mode & 0777);
-
-    char link_name[256];
-    printf("Enter link name to delete (max 256 characters): ");
-    scanf("%s", link_name);
-
-    if (unlink(link_name) == -1) {
-        perror("unlink");
-        return;
-    }
-    printf("Symbolic link deleted: %s\n", link_name);
-}
-
-void print_directory_info(const char* path) {
-    printf("Directory name: %s\n", path);
-}
-// we print the information of the file, depending on the type of file
-void print_file_info(const char* path) {
-    struct stat st;
-    if (stat(path, &st) == -1) {
-        perror("stat");
-        return;
+    if (S_ISLNK(sb.st_mode)) {
+        // Get target path and size if symbolic link
+        target_size = readlink(path, target_path, PATH_MAX - 1);
+        if (target_size == -1) {
+            perror("readlink");
+            return;
+        }
+        target_path[target_size] = '\0';
     }
 
-    switch (st.st_mode & S_IFMT) {
-        case S_IFREG:
-            print_regular_file_info(path);
+    switch (option) {
+        case 'n':
+            printf("%s\n", path);
             break;
-        case S_IFLNK:
-            print_symbolic_link_info(path);
+
+        case 'l':
+            // Delete symbolic link
+            if (unlink(path) == -1) {
+                perror("unlink");
+            }
+            delete_flag = 1;
             break;
-        case S_IFDIR:
-            print_directory_info(path);
+
+        case 'd':
+            // Size of symbolic link
+            if (!S_ISLNK(sb.st_mode)) {
+                printf("Not a symbolic link\n");
+                return;
+            }
+            printf("%ld\n", target_size);
+            break;
+
+        case 't':
+            // Size of target file
+            if (!S_ISLNK(sb.st_mode)) {
+                printf("Not a symbolic link\n");
+                return;
+            }
+            if (lstat(target_path, &sb) == -1) {
+                perror("lstat");
+                return;
+            }
+            printf("%ld\n", sb.st_size);
+            break;
+
+        case 'a':
+            // Access rights
+            print_access_rights(sb.st_mode);
+            break;
+
+        default:
+            printf("Invalid option: %c\n", option);
+            break;
+    }
+
+    if (!delete_flag && option != '\0') {
+        printf("Additional options not supported\n");
+    }
+}
+
+void display_regular_file_menu(char* path) {
+    printf("Options:\n");
+    printf("-n: display name of file\n");
+    printf("-h: display hard link count\n");
+    printf("-d: display file size\n");
+    printf("-m: display time of last modification\n");
+    printf("-a: display access rights\n");
+    printf("-l: create symbolic link\n");
+    printf("Enter options as a single string (e.g., -nhd): ");
+    char options[10];
+    fgets(options, sizeof(options), stdin);
+    options[strcspn(options, "\n")] = '\0'; // remove newline character
+    int i;
+    int check = 1;
+    char option;
+    for(i = 1; i <strlen(options); i++) {
+        option = options[i];
+        if(!(strchr("nhdmal", option))){
+            check = 0;
+            break;
+        }
+    }
+    
+    if(check == 1){
+    for (i = 1; i < strlen(options); i++) {
+        option = options[i];
+        execute_regular_file_option(option, path);
+    }
+     
+     }else {
+            print_error_message("Invalid option");
+            display_regular_file_menu(path);
+            return;
+        }
+    }
+
+void display_directory_menu(char* path) {
+    printf("Options:\n");
+    printf("-n: display name of file\n");
+    printf("-d: display file size\n");
+    printf("-a: display access rights\n");
+    printf("-c: number of files with .c extension\n");
+    printf("Enter options as a single string (e.g., -nhd): ");
+    char options[10];
+    fgets(options, sizeof(options), stdin);
+    options[strcspn(options, "\n")] = '\0'; // remove newline character
+    int i;
+    int check = 1;
+    char option;
+    for(i = 1; i <strlen(options); i++) {
+        option = options[i];
+        if(!(strchr("ndac", option))){
+            check = 0;
+            break;
+        }
+    }
+    
+    if(check == 1){
+    for (i = 1; i < strlen(options); i++) {
+        option = options[i];
+        execute_directory_option(option, path);
+    }
+     
+     }else {
+            print_error_message("Invalid option");
+            display_directory_menu(path);
+            return;
+        }
+    }
+
+void display_symbolic_link_menu(char* path) {
+    printf("Options:\n");
+    printf("-n: display name of file\n");
+    printf("-d: display file size\n");
+    printf("-a: display access rights\n");
+    printf("-c: number of files with .c extension\n");
+    printf("Enter options as a single string (e.g., -nhd): ");
+    char options[10];
+    fgets(options, sizeof(options), stdin);
+    options[strcspn(options, "\n")] = '\0'; // remove newline character
+    int i;
+    int check = 1;
+    char option;
+    for(i = 1; i <strlen(options); i++) {
+        option = options[i];
+        if(!(strchr("ndac", option))){
+            check = 0;
+            break;
+        }
+    }
+    
+    if(check == 1){
+    for (i = 1; i < strlen(options); i++) {
+        option = options[i];
+        execute_symbolic_link_option(option, path);
+    }
+     
+     }else {
+            print_error_message("Invalid option");
+            display_symbolic_link_menu(path);
+            return;
+        }
+    }
+
+void display_file_info(char* path) {
+    struct stat sb;
+    if (stat(path, &sb) == -1) {
+        print_error_message("Failed to get file information");
+        return;
+    }
+    switch (sb.st_mode & S_IFMT) {
+        case S_IFREG: // regular file
+            printf("File type: regular file\n");
+            display_regular_file_menu(path);
+            break;
+        case S_IFDIR: // directory
+            printf("File type: directory\n");
+            display_directory_menu(path);
+            break;
+        case S_IFLNK: // symbolic link
+            printf("File type: symbolic link\n");
+            display_symbolic_link_menu(path);
             break;
         default:
-            printf("Unknown file type: %s\n", path);
-            break;
+            printf("File type: unknown\n");
     }
 }
-//ze main functione
+
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        printf("Usage: %s file1 [file2 ...]\n", argv[0]);
-        return 1;
-    }
-
-    for (int i = 1; i < argc; i++) {
-        print_file_info(argv[i]);
-    }
-
+ display_file_info(argv[1]);
     return 0;
 }
-//ze end
