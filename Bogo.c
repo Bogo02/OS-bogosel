@@ -1,17 +1,3 @@
-/*Write a C program that recieves as parameters multiple arguments representing paths to regular files, directories and symbolic links.
-Depending on the file type(rf,d,sl) print an interactive menu:
-A)regular file: -n(file name)
--d(dim/size)
--h(nr of hard links)
--m(time of last modification)
--a(acces rights)
--l(create sym.link give:link name)
-B)symbolic link: -n(link name)
--l(delete link)
--d(size of the link)
--t(size of the target)
--a(access rights)
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -319,21 +305,103 @@ void display_file_info(char* path) {
     switch (sb.st_mode & S_IFMT) {
         case S_IFREG: // regular file
             printf("File type: regular file\n");
+			{pid_t pid;
+
+    // Fork a child process
+    pid = fork();
+
+    if (pid < 0) {
+        // Error occurred
+        fprintf(stderr, "Fork failed\n");
+        exit(EXIT_FAILURE);
+    } else if (pid == 0) {
+        // Child process
+        printf("This is the child process\n");
+        // Add child process logic here
+        exit(EXIT_SUCCESS);
+    } else {
+        // Parent process
+        printf("This is the parent process\n");
+        // Add parent process logic here
+        exit(EXIT_SUCCESS);
+    }
+
+    return 0;
+}
+            //fork here
             display_regular_file_menu(path);
+			//2nd process if here
+			//if check for .c extension
+			//execute .c program
+			//get back error number
+			//else write number of lines
+			//if .c extension compute score based on error and warning number
             break;
         case S_IFDIR: // directory
             printf("File type: directory\n");
+			//fork here
+            {pid_t pid;
+
+    // Fork a child process
+    pid = fork();
+
+    if (pid < 0) {
+        // Error occurred
+        fprintf(stderr, "Fork failed\n");
+        exit(EXIT_FAILURE);
+    } else if (pid == 0) {
+        // Child process
+        printf("This is the child process\n");
+        // Add child process logic here
+        exit(EXIT_SUCCESS);
+    } else {
+        // Parent process
+        printf("This is the parent process\n");
+        // Add parent process logic here
+        exit(EXIT_SUCCESS);
+    }
+
+    return 0;
+}
             display_directory_menu(path);
+			//2nd process if here
+			//Create  <dir_name>_file.txt
+			//wait for process to end
             break;
         case S_IFLNK: // symbolic link
             printf("File type: symbolic link\n");
+			//fork here
+            pid_t pid;
+
+    // Fork a child process
+    pid = fork();
+
+    if (pid < 0) {
+        // Error occurred
+        fprintf(stderr, "Fork failed\n");
+        exit(EXIT_FAILURE);
+    } else if (pid == 0) {
+        // Child process
+        printf("This is the child process\n");
+        // Add child process logic here
+        exit(EXIT_SUCCESS);
+    } else {
+        // Parent process
+        printf("This is the parent process\n");
+        // Add parent process logic here
+        exit(EXIT_SUCCESS);
+    }
+
+    return 0;
+}
             display_symbolic_link_menu(path);
+			//2nd process if here
+			//wait for process to end here
             break;
         default:
             printf("File type: unknown\n");
     }
 }
-
 int main(int argc, char* argv[]) {
  display_file_info(argv[1]);
     return 0;
