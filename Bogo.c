@@ -10,7 +10,6 @@
 #include <libgen.h>
 #include <time.h>
 
-
 void access_rights(mode_t mode) {
     printf("User:\n");
     printf("Read - %s\n", (mode & S_IRUSR) ? "yes" : "no");
@@ -26,50 +25,101 @@ void access_rights(mode_t mode) {
     printf("Exec - %s\n", (mode & S_IXOTH) ? "yes" : "no");
 }
 
-void create_symboliclink(char* path) {
+void create_symboliclink(const char* path) {
     char link_name[100];
+
     printf("Enter a name for the symbolic link: ");
     if (fgets(link_name, sizeof(link_name), stdin) == NULL) {
-        fprintf(stderr, "Error: Failed to read input\n");
+        perror("Failed to read input");
         return;
     }
-    // Remove newline character from link_name if present
     link_name[strcspn(link_name, "\n")] = '\0';
+
+    // Check if link name is empty
+    if (link_name[0] == '\0') {
+        perror("Link name cannot be empty");
+        return;
+    }
+
+    // Check if link name already exists
+    if (access(link_name, F_OK) == 0) {
+        perror("Link name already exists");
+        return;
+    }
+
     if (symlink(path, link_name) == -1) {
-        fprintf(stderr, "Error: Failed to create symbolic link\n");
+        perror("Failed to create symbolic link");
         return;
     }
     printf("Symbolic link created successfully\n");
 }
-void print_error_message(char* message) {
+
+void print_error_message(const char* message) {
     fprintf(stderr, "Error: %s\n", message);
 }
 
-void execute_regular_file(char option, char* path) {
+int create_symbolic_link(const char* path, const char* link_name) {
+    // Check if link name is empty
+    if (link_name[0] == '\0') {
+        perror("Link name cannot be empty");
+        return -1;
+    }
+
+    // Check if link name already exists
+    if (access(link_name, F_OK) == 0) {
+        perror("Link name already exists");
+        return -1;
+    }
+
+    if (symlink(path, link_name) == -1) {
+        perror("Failed to create symbolic link");
+        return -1;
+    }
+    printf("Symbolic link created successfully\n");
+    return 0;
+}
+
+void execute_regular_file(char option, const char* path) {
     struct stat sb;
     if (stat(path, &sb) == -1) {
-        perror("no file information");
-    }
-    switch (option) {
-    case 'n' : printf("Name (-n): %s\n", path);
-    break;
-	case 'd' : printf("Size (-d): %ld\n", sb.st_size);
-    break;
-	case 'h' : printf("Hard link count (-h): %ld\n", sb.st_nlink);
-    break;
-	case 'm' : printf("last modification time(-m): %s", ctime(&sb.st_mtime));
-    break;
-	case 'a' : printf("Access rights (-a):\n");
-		access_rights(sb.st_mode);
-	break;
-	case 'l' : printf("Create symbolic link (-l): ");
-	    create_symboliclink(path);
-	break;
-	default: break;   
+        perror("Failed to get file information");
+    } else {
+        switch (option) {
+        case 'n':
+            printf("Name (-n): %s\n", path);
+            break;
+        case 'd':
+            printf("Size (-d): %ld\n", sb.st_size);
+            break;
+        case 'h':
+            printf("Hard link count (-h): %ld\n", sb.st_nlink);
+            break;
+        case 'm':
+            printf("Last modification time(-m): %s", ctime(&sb.st_mtime));
+            break;
+        case 'a':
+            printf("Access rights (-a):\n");
+            access_rights(sb.st_mode);
+            break;
+        case 'l': {
+            char link_name[100];
+            printf("Enter a name for the symbolic link: ");
+            if (fgets(link_name, sizeof(link_name), stdin) == NULL) {
+                print_error_message("Failed to read input");
+                break;
+            }
+            link_name[strcspn(link_name, "\n")] = '\0';
+            create_symbolic_link(path, link_name);
+            break;
+        }
+        default:
+            printf("Invalid option: %c\n", option);
+            break;
+        }
     }
 }
 
-void execute_directory_option(char option, char* path) {
+void execute_directory_option(char option, const char* path) {
     struct dirent *dp;
     struct stat sb;
     DIR *dir = opendir(path);
@@ -248,20 +298,17 @@ void display_directory_menu(char* path) {
             break;
         }
     }
-    
     if(check == 1){
     for (i = 1; i < strlen(options); i++) {
         option = options[i];
         execute_directory_option(option, path);
     }
-     
      }else {
             print_error_message("Invalid option");
             display_directory_menu(path);
             return;
         }
-    }
-
+}
 void display_symboliclink_menu(char* path) {
     printf("Options:\n");
     printf("-n: display name of file\n");
@@ -304,165 +351,80 @@ void display_file_info(char* path) {
     }
     switch (sb.st_mode & S_IFMT) {
         case S_IFREG: // regular file
-            printf("File type: regular file\n");
-			
-            //fork here
-            {int fd1[2]; // store ends of first pipe
-             int fd2[2]; // store ends of second pipe
-             char fixed_str[] = " Test drive";
-            char input_str[100];
-                pid_t child_a, child_b;
+            printf("Regular File\n");
+			display_regular_file_menu(path);
+                if(strstr(path,".c")!=NULL)
+            {  pid_t child_a;
     // Fork a child process
-    if (pipe(fd1) == -1) {
-        fprintf(stderr, "Pipe Failed");
-       exit(EXIT_FAILURE);
-    }
-    if (pipe(fd2) == -1) {
-        fprintf(stderr, "Pipe Failed");
-        exit(EXIT_FAILURE);
-    }
     child_a = fork();
 
     if (child_a < 0) {
         // Error occurred
-        fprintf(stderr, "Fork failed\n");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "can't create child\n");
+        return;
     } else if (child_a == 0) {
         // Child process - logic here
-   //     printf("                 This is the child process\n");
-        close(fd1[1]); // Close writing end of first pipe
- 
-        // Read a string using first pipe
-        char concat_str[100];
-        read(fd1[0], concat_str, 100);
- 
-        // Concatenate a fixed string with it
-        int k = strlen(concat_str);
-        int i;
-        for (i = 0; i < strlen(fixed_str); i++)
-            concat_str[k++] = fixed_str[i];
- 
-        concat_str[k] = '\0'; // string ends with '\0'
- 
-        // Close both reading ends
-        close(fd1[0]);
-        close(fd2[0]);
- 
-        // Write concatenated string and close writing end
-        write(fd2[1], concat_str, strlen(concat_str) + 1);
-        close(fd2[1]);
- 
         exit(0);
+    }  //parent
+        waitpid(child_a,&status,0);
+        if(WIFEXITED(status)){
+            int exit_c=WEXITSTATUS(status);
+            printf("process %d ended with code %d\n",child_a, exit_c);
+        }
+        }else { //nr of lines
+            FILE* file=fopen(path,"r");
+            if(file==NULL){
+                fprintf(stderr,"no file\n");
+                return;
+            }
+            int lineCnt=0;
+            char chr;
+            while((chr==fgetc(file))!=EOF){
+                if(chr=='\n'){
+                    lineCnt++;
+                }
+            } fclose(file);
+            printf("nr of lines:%d\n",lineCnt);
+        } break;
 
-        exit(EXIT_SUCCESS);
-    } else {
-        child_b=fork();
-            if(child_b==0){
-                //2nd child process
-        //        printf("              2nd child process \n");
-        close(fd1[1]);
-        close(fd1[0]);
-        close(fd2[0]);
-        close(fd2[1]);
-            }else{
-                char concat_str[100];
- 
-        close(fd1[0]); // Close reading end of first pipe
- 
-        // Write input string and close writing end of first
-        // pipe.
-        write(fd1[1], input_str, strlen(input_str) + 1);
-        close(fd1[1]);
- 
-        // Wait for child to send a string
-        //wait(NULL);
- 
-        close(fd2[1]); // Close writing end of second pipe
- 
-        // Read string from child, print it and close
-        // reading end.
-        read(fd2[0], concat_str, 100);
-        printf("string %s\n", concat_str);
-        close(fd2[0]);
-    }
-        // Parent process
-       // printf("                This is the parent process\n");
-        // Add parent process logic here
-        exit(EXIT_SUCCESS);
-    }
-}
-            display_regular_file_menu(path);
-			//2nd process if here
-            
-			//if check for .c extension
-			//execute .c program
-			//get back error number
-			//else write number of lines
-			//if .c extension compute score based on error and warning number
-            break;
-        case S_IFDIR: // directory
-            printf("File type: directory\n");
-			//fork here
-            {pid_t pid;
-
-    // Fork a child process
-    pid = fork();
-
-    if (pid < 0) {
-        // Error occurred
-        fprintf(stderr, "Fork failed\n");
-        exit(EXIT_FAILURE);
-    } else if (pid == 0) {
-        // Child process
-       // printf("This is the child process\n");
-        // Add child process logic here
-        exit(EXIT_SUCCESS);
-    } else {
-        // Parent process
-        //printf("This is the parent process\n");
-        // Add parent process logic here
-        exit(EXIT_SUCCESS);
-    }
-
-}
-            display_directory_menu(path);
-			//2nd process if here
-			//Create  <dir_name>_file.txt
-			//wait for process to end
-            break;
-        case S_IFLNK: // symbolic link
-            printf("File type: symbolic link\n");
-			//fork here
-            pid_t pid;
-
-    // Fork a child process
-    pid = fork();
-
-    if (pid < 0) {
-        // Error occurred
-        fprintf(stderr, "Fork failed\n");
-        exit(EXIT_FAILURE);
-    } else if (pid == 0) {
-        // Child process
-       // printf("child process\n");
-        // Add child process logic here
-        exit(EXIT_SUCCESS);
-    } else {
-        // Parent process
-        //printf("parent process\n");
-        // Add parent process logic here
-        exit(EXIT_SUCCESS);
-    }
-
-}
+            case S_IFDIR: //directory
+            printf("Directory\n");
+        display_directory_menu(path);
+            pid_t child_b;
+            if(child_b<0){
+                fprintf(stderr,"can't create child\n");
+                return;
+            } else if(child_b == 0){
+                //child process
+                exit(0);
+            }
+            //parent process
+            waitpid(child_b, &status,0);
+            if(WIFEXITED(status)){
+                int exit_c=WEXITSTATUS(status);
+                printf("Process %d ended with code %d\n",child_b,exit_c);
+            } break;
+            case S_IFLNK: //symbolic link
+            printf("Symbolic Link\n");
             display_symboliclink_menu(path);
-			//2nd process if here
-			//wait for process to end here
-           // break;
-        //default:
-            printf("File type: unknown\n");
+            pid_t child_c = fork();
+            if(child_c<0){
+                fprintf(stderr,"can't create child\n");
+                return;
+            }else if(child_c == 0){
+                //child process
+                exit(0);
+            }
+            //parent process
+            waitpid(child_c,&status,0)
+                if(WIFEXITED(status)){
+                    int exit_c=WEXITSTATUS(status);
+                    printf("Process %d ended with code %d\n",child_c,exit_c);  
+            }    break;
+            default:
+            printf("unknown file type\n");
     }
-
+    }
 int main(int argc, char* argv[]) {
  display_file_info(argv[1]);
     return 0;
