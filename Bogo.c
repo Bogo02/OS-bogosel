@@ -69,11 +69,12 @@ void access_rights(mode_t mode) {
     printf("Write - %s\n", (mode & S_IWOTH) ? "yes" : "no");
     printf("Exec - %s\n", (mode & S_IXOTH) ? "yes" : "no");
 }
-
+//function creates a symbolic link to file specified by the program 
 void create_symboliclink(const char* path) {
     char link_name[100];
-
+    //promts user for a name for the symb. link
     printf("Enter a name for the symbolic link: ");
+    //reads input from user
     if (fgets(link_name, sizeof(link_name), stdin) == NULL) {
         perror("Failed to read input");
         return;
@@ -91,7 +92,7 @@ void create_symboliclink(const char* path) {
         perror("Link name already exists");
         return;
     }
-
+//create the symbolic link using the path and link name
     if (symlink(path, link_name) == -1) {
         perror("Failed to create symbolic link");
         return;
@@ -230,8 +231,6 @@ void display_symboliclink_menu(char* path) {
             return;
         }
     }
-
-
 
 void execute_regular_file(char option, const char* path) {
     struct stat sb;
@@ -492,6 +491,7 @@ void display_file_info(char* path) {
   
   
  int main(int argc, char* argv[]) {
+    //wanted to add more comments, ran out of time
       display_file_info(argv[1]);
     int fd[2];
     if (pipe(fd) == -1) {
